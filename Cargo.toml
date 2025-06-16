@@ -1,0 +1,9 @@
+[package]
+name = "mosaic-net"
+version = "0.1.0"
+description = "Mosaic network library"
+edition = "2024"
+license = "MIT"
+authors = [ "Mike Dilger <mike@mikedilger.com>" ]
+
+[dependencies]
