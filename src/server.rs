@@ -111,6 +111,12 @@ impl Server {
             .map(IncomingClient)
             .ok_or::<Error>(InnerError::EndpointIsClosed.into())
     }
+
+    /// Close down gracefully.
+    pub async fn close(self, code: u32, reason: &[u8]) {
+        self.endpoint.close(code.into(), reason);
+        self.endpoint.wait_idle().await;
+    }
 }
 
 /// Whether or not a connection is allowed
@@ -141,6 +147,12 @@ impl IncomingClient {
     /// actually controls the IP address and port it claims to be connecting
     /// from, which requires a round-trip but significantly reduces the effect
     /// of DoS attacks.
+    ///
+    /// # Errors
+    ///
+    /// Errors if client does not perform stateless retry properly, if the
+    /// remote address is not approved, or if there is a problem connecting.
+    #[allow(clippy::missing_panics_doc)]
     pub async fn accept<F>(self, approve: F) -> Result<ClientConnection, Error>
     where
         F: Fn(SocketAddr) -> Approval,
@@ -205,17 +217,27 @@ pub struct ClientConnection {
 
 impl ClientConnection {
     /// Get at the inner `quinn::Connection`
+    #[must_use]
     pub fn inner(&self) -> &quinn::Connection {
         &self.inner
     }
 
     /// Get at the inner `quinn::Connection`
+    #[must_use]
     pub fn inner_mut(&mut self) -> &mut quinn::Connection {
         &mut self.inner
     }
 
     /// Get authenticated peer
+    #[must_use]
     pub fn peer(&self) -> Option<PublicKey> {
         self.peer
+    }
+
+    /// Close down gracefully.
+    ///
+    /// `message` will be truncated if it does not fit in a single packet
+    pub fn close(self, code: u32, message: &[u8]) {
+        self.inner.close(code.into(), message);
     }
 }
