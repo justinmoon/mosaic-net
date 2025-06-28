@@ -1,6 +1,6 @@
 use crate::ALPN_QUIC_MOSAIC;
-use crate::error::Error;
-use mosaic_core::SecretKey;
+use crate::error::{Error, InnerError};
+use mosaic_core::{PublicKey, SecretKey};
 use quinn::ServerConfig as QuinnServerConfig;
 use rustls::ServerConfig as TlsServerConfig;
 use std::net::SocketAddr;
@@ -93,4 +93,127 @@ pub struct Server {
     config: ServerConfig,
     #[allow(dead_code)]
     endpoint: quinn::Endpoint,
+}
+
+impl Server {
+    /// Accept a new connection. This returns as soon as it can so that the
+    /// thread that calls it can get on with other clients.
+    ///
+    /// # Errors
+    ///
+    /// Errors if the endpoint is closed
+    pub async fn accept(&self) -> Result<IncomingClient, Error> {
+        self.endpoint
+            .accept()
+            .await
+            .map(IncomingClient)
+            .ok_or::<Error>(InnerError::EndpointIsClosed.into())
+    }
+}
+
+/// Whether or not a connection is allowed
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum Approval {
+    /// Approve
+    Approve,
+
+    /// Refuse
+    Refuse,
+
+    /// Refuse silently
+    SilentlyRefuse,
+}
+
+/// An incoming client that is not fully accepted yet, but should probably be
+/// handled and awaited upon in in a separate task from the main server
+/// accepting thread
+#[derive(Debug)]
+pub struct IncomingClient(quinn::Incoming);
+
+impl IncomingClient {
+    #[allow(clippy::doc_markdown)]
+    /// Accept (or reject) the incoming client based on the `approve` function
+    /// which allows you to block IP addresses.
+    ///
+    /// Internally this requires stateless retry to verify that the client
+    /// actually controls the IP address and port it claims to be connecting
+    /// from, which requires a round-trip but significantly reduces the effect
+    /// of DoS attacks.
+    pub async fn accept<F>(self, approve: F) -> Result<ClientConnection, Error>
+    where
+        F: Fn(SocketAddr) -> Approval,
+    {
+        // We don't talk to brand new endpoints until they prove that they
+        // control the remote IP and PORT that the packet claims. This is
+        // called "stateless retry". The first connection they make must
+        // contain a DCID we recognize. This requires 1-RTT, but only the
+        // first time they connect to us (not having a token). It prevents
+        // certain kinds of security problems, at the cost of a RTT.
+        if !self.0.remote_address_validated() {
+            self.0.retry()?;
+            return Err(InnerError::StatelessRetryRequired.into());
+        }
+
+        let remote_address: SocketAddr = self.0.remote_address();
+
+        match approve(remote_address) {
+            Approval::Approve => {}
+            Approval::Refuse => {
+                self.0.refuse();
+                return Err(InnerError::RemoteAddressNotApproved.into());
+            }
+            Approval::SilentlyRefuse => {
+                self.0.ignore();
+                return Err(InnerError::RemoteAddressNotApproved.into());
+            }
+        }
+
+        let connecting = self.0.accept()?;
+        let connection = connecting.await?;
+
+        let mut peer: Option<PublicKey> = None;
+        if let Some(id) = connection.peer_identity() {
+            match id.downcast_ref::<Vec<rustls::pki_types::CertificateDer>>() {
+                Some(vec) => {
+                    for cert in vec {
+                        if let Ok(vk) = alt_tls::public_key_from_certificate_der(cert) {
+                            peer = Some(PublicKey::from_verifying_key(&vk));
+                        }
+                    }
+                }
+                None => {
+                    panic!("Invalid downcast code");
+                }
+            }
+        }
+
+        Ok(ClientConnection {
+            inner: connection,
+            peer,
+        })
+    }
+}
+
+/// A connection to a client
+#[derive(Debug)]
+pub struct ClientConnection {
+    inner: quinn::Connection,
+    peer: Option<PublicKey>,
+}
+
+impl ClientConnection {
+    /// Get at the inner `quinn::Connection`
+    pub fn inner(&self) -> &quinn::Connection {
+        &self.inner
+    }
+
+    /// Get at the inner `quinn::Connection`
+    pub fn inner_mut(&mut self) -> &mut quinn::Connection {
+        &mut self.inner
+    }
+
+    /// Get authenticated peer
+    pub fn peer(&self) -> Option<PublicKey> {
+        self.peer
+    }
 }

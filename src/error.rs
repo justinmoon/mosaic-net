@@ -34,6 +34,9 @@ pub enum InnerError {
     /// Connection
     ConnectionError(quinn::ConnectionError),
 
+    /// Endpoint is closed
+    EndpointIsClosed,
+
     /// General error
     General(String),
 
@@ -42,6 +45,15 @@ pub enum InnerError {
 
     /// `NoInitialCipherSuite`
     NoInitialCipherSuite(quinn::crypto::rustls::NoInitialCipherSuite),
+
+    /// Remote address not approved
+    RemoteAddressNotApproved,
+
+    /// Retry Error
+    RetryError(Box<quinn::RetryError>),
+
+    /// Stateless Retry was required
+    StatelessRetryRequired,
 
     /// TLS
     Tls(rustls::Error),
@@ -53,9 +65,13 @@ impl std::fmt::Display for InnerError {
             InnerError::AltTls(e) => write!(f, "Alt TLS Error: {e}"),
             InnerError::ConnectError(e) => write!(f, "QUIC connect error: {e}"),
             InnerError::ConnectionError(e) => write!(f, "QUIC connection error: {e}"),
+            InnerError::EndpointIsClosed => write!(f, "Endpoint is closed"),
             InnerError::General(s) => write!(f, "General Error: {s}"),
             InnerError::Io(e) => write!(f, "I/O Error: {e}"),
             InnerError::NoInitialCipherSuite(_) => write!(f, "No initial cipher suite"),
+            InnerError::RemoteAddressNotApproved => write!(f, "Remote address not approved"),
+            InnerError::RetryError(e) => write!(f, "QUIC retry error: {e}"),
+            InnerError::StatelessRetryRequired => write!(f, "Stateless retry required"),
             InnerError::Tls(e) => write!(f, "TLS Error: {e}"),
         }
     }
@@ -69,6 +85,7 @@ impl StdError for InnerError {
             InnerError::ConnectionError(e) => Some(e),
             InnerError::Io(e) => Some(e),
             InnerError::NoInitialCipherSuite(e) => Some(e),
+            InnerError::RetryError(e) => Some(e),
             InnerError::Tls(e) => Some(e),
             _ => None,
         }
@@ -173,6 +190,16 @@ impl From<quinn::crypto::rustls::NoInitialCipherSuite> for Error {
     fn from(e: quinn::crypto::rustls::NoInitialCipherSuite) -> Self {
         Error {
             inner: InnerError::NoInitialCipherSuite(e),
+            location: Location::caller(),
+        }
+    }
+}
+
+impl From<quinn::RetryError> for Error {
+    #[track_caller]
+    fn from(e: quinn::RetryError) -> Self {
+        Error {
+            inner: InnerError::RetryError(Box::new(e)),
             location: Location::caller(),
         }
     }

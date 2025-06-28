@@ -32,4 +32,4 @@ mod client;
 pub use client::{Client, ClientConfig};
 
 mod server;
-pub use server::{Server, ServerConfig};
+pub use server::{Approval, ClientConnection, IncomingClient, Server, ServerConfig};
