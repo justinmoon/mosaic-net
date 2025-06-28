@@ -12,3 +12,6 @@ mosaic-core = { git = "https://github.com/mikedilger/mosaic-core", branch = "mas
 quinn = "0.11"
 quinn-proto = "0.11"
 rustls = { version = "0.23", default-features = false, features = [ "logging" ] }
+
+[dev-dependencies]
+tokio = { version = "1", features = [ "full" ] }
