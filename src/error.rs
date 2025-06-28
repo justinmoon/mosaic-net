@@ -28,6 +28,12 @@ pub enum InnerError {
     /// Alt-TLS error
     AltTls(alt_tls::Error),
 
+    /// Connect
+    ConnectError(quinn::ConnectError),
+
+    /// Connection
+    ConnectionError(quinn::ConnectionError),
+
     /// General error
     General(String),
 
@@ -45,6 +51,8 @@ impl std::fmt::Display for InnerError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             InnerError::AltTls(e) => write!(f, "Alt TLS Error: {e}"),
+            InnerError::ConnectError(e) => write!(f, "QUIC connect error: {e}"),
+            InnerError::ConnectionError(e) => write!(f, "QUIC connection error: {e}"),
             InnerError::General(s) => write!(f, "General Error: {s}"),
             InnerError::Io(e) => write!(f, "I/O Error: {e}"),
             InnerError::NoInitialCipherSuite(_) => write!(f, "No initial cipher suite"),
@@ -57,6 +65,8 @@ impl StdError for InnerError {
     fn source(&self) -> Option<&(dyn StdError + 'static)> {
         match self {
             InnerError::AltTls(e) => Some(e),
+            InnerError::ConnectError(e) => Some(e),
+            InnerError::ConnectionError(e) => Some(e),
             InnerError::Io(e) => Some(e),
             InnerError::NoInitialCipherSuite(e) => Some(e),
             InnerError::Tls(e) => Some(e),
@@ -123,6 +133,26 @@ impl From<alt_tls::Error> for Error {
     fn from(e: alt_tls::Error) -> Self {
         Error {
             inner: InnerError::AltTls(e),
+            location: Location::caller(),
+        }
+    }
+}
+
+impl From<quinn::ConnectError> for Error {
+    #[track_caller]
+    fn from(e: quinn::ConnectError) -> Self {
+        Error {
+            inner: InnerError::ConnectError(e),
+            location: Location::caller(),
+        }
+    }
+}
+
+impl From<quinn::ConnectionError> for Error {
+    #[track_caller]
+    fn from(e: quinn::ConnectionError) -> Self {
+        Error {
+            inner: InnerError::ConnectionError(e),
             location: Location::caller(),
         }
     }
