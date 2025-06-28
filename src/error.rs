@@ -43,6 +43,9 @@ pub enum InnerError {
     /// I/O error
     Io(std::io::Error),
 
+    /// Missing ALPN
+    MissingAlpn,
+
     /// `NoInitialCipherSuite`
     NoInitialCipherSuite(quinn::crypto::rustls::NoInitialCipherSuite),
 
@@ -57,6 +60,9 @@ pub enum InnerError {
 
     /// TLS
     Tls(rustls::Error),
+
+    /// Wrong ALPN
+    WrongAlpn,
 }
 
 impl std::fmt::Display for InnerError {
@@ -68,11 +74,13 @@ impl std::fmt::Display for InnerError {
             InnerError::EndpointIsClosed => write!(f, "Endpoint is closed"),
             InnerError::General(s) => write!(f, "General Error: {s}"),
             InnerError::Io(e) => write!(f, "I/O Error: {e}"),
+            InnerError::MissingAlpn => write!(f, "ALPN not specified by peer"),
             InnerError::NoInitialCipherSuite(_) => write!(f, "No initial cipher suite"),
             InnerError::RemoteAddressNotApproved => write!(f, "Remote address not approved"),
             InnerError::RetryError(e) => write!(f, "QUIC retry error: {e}"),
             InnerError::StatelessRetryRequired => write!(f, "Stateless retry required"),
             InnerError::Tls(e) => write!(f, "TLS Error: {e}"),
+            InnerError::WrongAlpn => write!(f, "Wrong ALPN (peer did not specify mosaic)"),
         }
     }
 }

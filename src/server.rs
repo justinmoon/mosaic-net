@@ -182,7 +182,25 @@ impl IncomingClient {
             }
         }
 
-        let connecting = self.0.accept()?;
+        let mut connecting = self.0.accept()?;
+
+        // Verify ALPN
+        match connecting
+            .handshake_data()
+            .await?
+            .downcast_ref::<quinn::crypto::rustls::HandshakeData>()
+        {
+            Some(hd) => match &hd.protocol {
+                Some(alpn) => {
+                    if alpn != ALPN_QUIC_MOSAIC {
+                        return Err(InnerError::WrongAlpn.into());
+                    }
+                }
+                None => return Err(InnerError::MissingAlpn.into()),
+            },
+            None => panic!("Invalid downcast code"),
+        }
+
         let connection = connecting.await?;
 
         let mut peer: Option<PublicKey> = None;
@@ -195,9 +213,7 @@ impl IncomingClient {
                         }
                     }
                 }
-                None => {
-                    panic!("Invalid downcast code");
-                }
+                None => panic!("Invalid downcast code"),
             }
         }
 
