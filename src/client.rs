@@ -127,3 +127,31 @@ pub struct Client {
     #[allow(clippy::struct_field_names)]
     client_secret_key: Option<SecretKey>,
 }
+
+impl Client {
+    /// Get at the inner `quinn::Connection`
+    #[must_use]
+    pub fn inner(&self) -> &quinn::Connection {
+        &self.connection
+    }
+
+    /// Get at the inner `quinn::Connection`
+    #[must_use]
+    pub fn inner_mut(&mut self) -> &mut quinn::Connection {
+        &mut self.connection
+    }
+
+    /// Get public key of authenticated server
+    #[must_use]
+    pub fn peer(&self) -> PublicKey {
+        self.server_public_key
+    }
+
+    /// Close down gracefully.
+    ///
+    /// `message` will be truncated if it does not fit in a single packet
+    pub async fn close(self, code: u32, reason: &[u8]) {
+        self.connection.close(code.into(), reason);
+        self.local_endpoint.wait_idle().await;
+    }
+}
