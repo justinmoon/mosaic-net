@@ -86,7 +86,9 @@ impl ServerConfig {
     }
 }
 
-/// A Mosaic network Server
+/// A Mosaic network `Server`
+///
+/// use `ServerConfig` to create a `Server`
 #[derive(Debug)]
 pub struct Server {
     #[allow(dead_code)]

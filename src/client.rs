@@ -111,6 +111,8 @@ impl ClientConfig {
 }
 
 /// A mosaic `Client`, connected to a specific mosaic `Server`
+///
+/// use `ClientConfig` to create a `Client`
 #[derive(Debug)]
 pub struct Client {
     #[allow(dead_code)]
