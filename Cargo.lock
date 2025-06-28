@@ -987,6 +987,7 @@ dependencies = [
  "alt-tls",
  "mosaic-core",
  "quinn",
+ "rustls",
 ]
 
 [[package]]
