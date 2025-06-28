@@ -24,3 +24,9 @@
 
 mod error;
 pub use error::{Error, InnerError};
+
+/// The Application-Layer protocol string used within QUIC for Mosaic
+pub const ALPN_QUIC_MOSAIC: &[u8] = b"mosaic";
+
+mod server;
+pub use server::{Server, ServerConfig};
