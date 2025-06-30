@@ -168,9 +168,9 @@ impl IncomingClient {
             return Err(InnerError::StatelessRetryRequired.into());
         }
 
-        let remote_address: SocketAddr = self.0.remote_address();
+        let remote_socket: SocketAddr = self.0.remote_address();
 
-        match approve(remote_address) {
+        match approve(remote_socket) {
             Approval::Approve => {}
             Approval::Refuse => {
                 self.0.refuse();
@@ -218,6 +218,7 @@ impl IncomingClient {
         }
 
         Ok(ClientConnection {
+            remote_socket,
             inner: connection,
             peer,
         })
@@ -228,6 +229,7 @@ impl IncomingClient {
 #[derive(Debug)]
 pub struct ClientConnection {
     inner: quinn::Connection,
+    remote_socket: SocketAddr,
     peer: Option<PublicKey>,
 }
 
@@ -248,6 +250,12 @@ impl ClientConnection {
     #[must_use]
     pub fn peer(&self) -> Option<PublicKey> {
         self.peer
+    }
+
+    /// Get remote socket
+    #[must_use]
+    pub fn remote_socket(&self) -> SocketAddr {
+        self.remote_socket
     }
 
     /// Close down gracefully.
