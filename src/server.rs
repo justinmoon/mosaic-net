@@ -1,4 +1,5 @@
 use crate::ALPN_QUIC_MOSAIC;
+use crate::channel::Channel;
 use crate::error::{Error, InnerError};
 use mosaic_core::{PublicKey, SecretKey};
 use quinn::ServerConfig as QuinnServerConfig;
@@ -263,5 +264,15 @@ impl ClientConnection {
     /// `message` will be truncated if it does not fit in a single packet
     pub fn close(self, code: u32, message: &[u8]) {
         self.inner.close(code.into(), message);
+    }
+
+    /// Get the next `Channel` created by the client
+    ///
+    /// # Errors
+    ///
+    /// Returns an Err if there was a QUIC `accept_bi()` problem
+    pub async fn next_channel(&self) -> Result<Channel, Error> {
+        let (send, recv) = self.inner.accept_bi().await?;
+        Ok(Channel::new(send, recv))
     }
 }
