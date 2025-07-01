@@ -33,3 +33,6 @@ pub use client::{Client, ClientConfig};
 
 mod server;
 pub use server::{Approval, ClientConnection, IncomingClient, Server, ServerConfig};
+
+mod channel;
+pub use channel::Channel;

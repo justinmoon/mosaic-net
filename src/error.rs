@@ -28,6 +28,9 @@ pub enum InnerError {
     /// Alt-TLS error
     AltTls(alt_tls::Error),
 
+    /// Channel already finished
+    ChannelAlreadyFinished,
+
     /// Connect
     ConnectError(quinn::ConnectError),
 
@@ -46,8 +49,17 @@ pub enum InnerError {
     /// Missing ALPN
     MissingAlpn,
 
+    /// Mosaic Core
+    MosaicCore(mosaic_core::Error),
+
     /// `NoInitialCipherSuite`
     NoInitialCipherSuite(quinn::crypto::rustls::NoInitialCipherSuite),
+
+    /// Quic Read error
+    QuicRead(Box<quinn::ReadError>),
+
+    /// Quic Write error
+    QuicWrite(Box<quinn::WriteError>),
 
     /// Remote address not approved
     RemoteAddressNotApproved,
@@ -69,13 +81,17 @@ impl std::fmt::Display for InnerError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             InnerError::AltTls(e) => write!(f, "Alt TLS Error: {e}"),
+            InnerError::ChannelAlreadyFinished => write!(f, "Channel already finished"),
             InnerError::ConnectError(e) => write!(f, "QUIC connect error: {e}"),
             InnerError::ConnectionError(e) => write!(f, "QUIC connection error: {e}"),
             InnerError::EndpointIsClosed => write!(f, "Endpoint is closed"),
             InnerError::General(s) => write!(f, "General Error: {s}"),
             InnerError::Io(e) => write!(f, "I/O Error: {e}"),
             InnerError::MissingAlpn => write!(f, "ALPN not specified by peer"),
+            InnerError::MosaicCore(e) => write!(f, "Mosaic error: {e}"),
             InnerError::NoInitialCipherSuite(_) => write!(f, "No initial cipher suite"),
+            InnerError::QuicRead(e) => write!(f, "QUIC read error: {e}"),
+            InnerError::QuicWrite(e) => write!(f, "QUIC write error: {e}"),
             InnerError::RemoteAddressNotApproved => write!(f, "Remote address not approved"),
             InnerError::RetryError(e) => write!(f, "QUIC retry error: {e}"),
             InnerError::StatelessRetryRequired => write!(f, "Stateless retry required"),
@@ -92,7 +108,10 @@ impl StdError for InnerError {
             InnerError::ConnectError(e) => Some(e),
             InnerError::ConnectionError(e) => Some(e),
             InnerError::Io(e) => Some(e),
+            InnerError::MosaicCore(e) => Some(e),
             InnerError::NoInitialCipherSuite(e) => Some(e),
+            InnerError::QuicRead(e) => Some(e),
+            InnerError::QuicWrite(e) => Some(e),
             InnerError::RetryError(e) => Some(e),
             InnerError::Tls(e) => Some(e),
             _ => None,
@@ -193,11 +212,41 @@ impl From<std::io::Error> for Error {
     }
 }
 
+impl From<mosaic_core::Error> for Error {
+    #[track_caller]
+    fn from(e: mosaic_core::Error) -> Self {
+        Error {
+            inner: InnerError::MosaicCore(e),
+            location: Location::caller(),
+        }
+    }
+}
+
 impl From<quinn::crypto::rustls::NoInitialCipherSuite> for Error {
     #[track_caller]
     fn from(e: quinn::crypto::rustls::NoInitialCipherSuite) -> Self {
         Error {
             inner: InnerError::NoInitialCipherSuite(e),
+            location: Location::caller(),
+        }
+    }
+}
+
+impl From<quinn::ReadError> for Error {
+    #[track_caller]
+    fn from(e: quinn::ReadError) -> Self {
+        Error {
+            inner: InnerError::QuicRead(Box::new(e)),
+            location: Location::caller(),
+        }
+    }
+}
+
+impl From<quinn::WriteError> for Error {
+    #[track_caller]
+    fn from(e: quinn::WriteError) -> Self {
+        Error {
+            inner: InnerError::QuicWrite(Box::new(e)),
             location: Location::caller(),
         }
     }
