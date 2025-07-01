@@ -1,4 +1,5 @@
 use crate::ALPN_QUIC_MOSAIC;
+use crate::channel::Channel;
 use crate::error::Error;
 use mosaic_core::{PublicKey, SecretKey};
 use quinn::ClientConfig as QuinnClientConfig;
@@ -159,5 +160,15 @@ impl Client {
     pub async fn close(self, code: u32, reason: &[u8]) {
         self.connection.close(code.into(), reason);
         self.local_endpoint.wait_idle().await;
+    }
+
+    /// Open a new `Channel`
+    ///
+    /// # Errors
+    ///
+    /// Returns an Err if there was a QUIC `open_bi()` problem
+    pub async fn new_channel(&self) -> Result<Channel, Error> {
+        let (send, recv) = self.connection.open_bi().await?;
+        Ok(Channel::new(send, recv))
     }
 }
