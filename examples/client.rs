@@ -1,6 +1,5 @@
 use mosaic_core::*;
 use mosaic_net::*;
-use std::io::Write;
 use std::net::SocketAddr;
 
 #[tokio::main]
@@ -16,22 +15,44 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let server_socket: SocketAddr = "127.0.0.1:8081".parse()?;
 
-    let client_config =
-        ClientConfig::new(server_public_key, server_socket, Some(client_secret_key))?;
+    let client_config = ClientConfig::new(
+        server_public_key,
+        server_socket,
+        Some(client_secret_key.clone()),
+    )?;
 
     let client = client_config.client(None).await?;
 
-    let (mut send, mut recv) = client.inner().open_bi().await?;
+    let mut channel = client.new_channel().await?;
 
-    // Write a "ping"
-    send.write_all(b"ping").await?;
-    send.finish()?;
+    let record = {
+        let payload = b"hello";
+        let tags = OwnedTagSet::new();
+        let parts = RecordParts {
+            kind: Kind::CHAT_MESSAGE,
+            deterministic_nonce: None,
+            timestamp: Timestamp::now()?,
+            flags: RecordFlags::empty(),
+            tag_set: &tags,
+            payload: payload.as_slice(),
+        };
+        OwnedRecord::new(&client_secret_key, &parts)?
+    };
 
-    // Read full response from the server
-    let resp = recv.read_to_end(1024 * 1024).await?;
-    std::io::stdout().write_all(&resp).unwrap();
-    std::io::stdout().flush().unwrap();
-    println!("");
+    let message = Message::new_submission(&record)?;
+
+    channel.send(message).await?;
+
+    if let Some(message) = channel.recv().await? {
+        match message.message_type() {
+            MessageType::SubmissionResult => {
+                eprintln!("Submission result: {:?}", message.submission_result_code().unwrap());
+            },
+            _ => {
+                eprintln!("Unexpected response: {message:?}");
+            }
+        }
+    }
 
     client.close(0, b"client is done").await;
 

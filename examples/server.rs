@@ -1,6 +1,5 @@
 use mosaic_core::*;
 use mosaic_net::*;
-use std::io::Write;
 use std::net::SocketAddr;
 
 #[tokio::main]
@@ -19,38 +18,57 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     loop {
         let incoming_client: IncomingClient = server.accept().await?;
         tokio::spawn(async move {
-            if let Err(e) = handle_incoming(incoming_client).await {
+            if let Err(e) = handle_client(incoming_client).await {
                 eprintln!("{e}");
             }
         });
     }
 }
 
-async fn handle_incoming(
-    incoming_client: IncomingClient,
-) -> Result<(), Box<dyn std::error::Error>> {
+async fn handle_client(incoming_client: IncomingClient) -> Result<(), Box<dyn std::error::Error>> {
     match incoming_client.accept(|_| Approval::Approve).await {
-        Ok(connection) => {
-            println!("REMOTE IS {}", connection.inner().remote_address());
-            match connection.peer() {
+        Ok(client_connection) => {
+            println!("REMOTE IS {}", client_connection.remote_socket());
+            match client_connection.peer() {
                 Some(peer) => println!("REMOTE PEER {}", peer),
                 None => println!("ANONYMOUS"),
             }
 
             loop {
-                let (mut send, mut recv) = connection.inner().accept_bi().await?;
+                let channel = client_connection.next_channel().await?;
 
-                // Read and display
-                let req = recv.read_to_end(1024 * 1024).await?;
-                std::io::stdout().write_all(&req).unwrap();
-                std::io::stdout().flush().unwrap();
-                println!("");
-
-                // Write a response
-                send.write_all(b"Well said.").await?;
+                // Handle the channel in a parallel task so that we can handle
+                // multiple channels in parallel
+                tokio::spawn(async move {
+                    if let Err(e) = handle_channel(channel).await {
+                        eprintln!("{e}");
+                    }
+                });
             }
         }
         Err(e) => eprintln!("{e}"),
+    }
+
+    Ok(())
+}
+
+async fn handle_channel(mut channel: Channel) -> Result<(), Box<dyn std::error::Error>> {
+    while let Some(message) = channel.recv().await? {
+        match message.message_type() {
+            MessageType::Submission => {
+                let record = message.record().unwrap();
+                let response = Message::new_submission_result(
+                    SubmissionResultCode::RejectedRequiresAuthz,
+                    record.id(),
+                );
+                channel.send(response).await?;
+            }
+            _ => {
+                eprintln!("Unrecognized message: {message:?}");
+                let response = Message::new_unrecognized();
+                channel.send(response).await?;
+            }
+        }
     }
 
     Ok(())
