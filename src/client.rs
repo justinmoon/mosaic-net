@@ -147,6 +147,12 @@ impl Client {
         self.server_public_key
     }
 
+    /// Get remote socket
+    #[must_use]
+    pub fn remote_socket(&self) -> SocketAddr {
+        self.remote_socket
+    }
+
     /// Close down gracefully.
     ///
     /// `message` will be truncated if it does not fit in a single packet
