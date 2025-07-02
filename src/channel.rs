@@ -73,6 +73,8 @@ impl Channel {
         }
 
         let taken = std::mem::replace(&mut self.partial, vec![0; 8]);
+        self.bytes_read = 0;
+
         Ok(Some(Message::from_bytes(taken)?))
     }
 
