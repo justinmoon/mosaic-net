@@ -10,9 +10,12 @@ use std::sync::Arc;
 /// A configuration for creating a `Server`
 #[derive(Debug, Clone)]
 pub struct ServerConfig {
-    #[allow(dead_code)]
-    secret_key: SecretKey,
-    socket: SocketAddr,
+    /// Mosaic ed25519 secret key for the server
+    pub secret_key: SecretKey,
+
+    /// Socket address to bind to
+    pub socket_addr: SocketAddr,
+
     quinn: QuinnServerConfig,
 }
 
@@ -24,7 +27,7 @@ impl ServerConfig {
     /// Errors on numerous things that should not occur based on input, but might occur
     /// as software changes over time.
     #[allow(clippy::missing_panics_doc)]
-    pub fn new(secret_key: SecretKey, socket: SocketAddr) -> Result<ServerConfig, Error> {
+    pub fn new(secret_key: SecretKey, socket_addr: SocketAddr) -> Result<ServerConfig, Error> {
         // Create a Mosaic-compliant self-signed TLS identity
         let (certificate_der, private_key_der) = alt_tls::self_signed_tls_identity(
             &secret_key.to_signing_key(),
@@ -68,7 +71,7 @@ impl ServerConfig {
 
         Ok(ServerConfig {
             secret_key,
-            socket,
+            socket_addr,
             quinn: quinn_server_config,
         })
     }
@@ -79,7 +82,7 @@ impl ServerConfig {
     ///
     /// Errors if the server could not be setup.
     pub fn server(&self) -> Result<Server, Error> {
-        let endpoint = quinn::Endpoint::server(self.quinn.clone(), self.socket)?;
+        let endpoint = quinn::Endpoint::server(self.quinn.clone(), self.socket_addr)?;
         Ok(Server {
             config: self.clone(),
             endpoint,
@@ -87,8 +90,9 @@ impl ServerConfig {
     }
 
     /// Retrieve the socket address
-    pub fn socket(&self) -> SocketAddr {
-        self.socket
+    #[must_use]
+    pub fn socket_addr(&self) -> SocketAddr {
+        self.socket_addr
     }
 }
 
@@ -123,6 +127,7 @@ impl Server {
     }
 
     /// Retrieve the configuration
+    #[must_use]
     pub fn config(&self) -> &ServerConfig {
         &self.config
     }
@@ -190,9 +195,9 @@ impl IncomingClient {
             return Err(InnerError::StatelessRetryRequired.into());
         }
 
-        let remote_socket: SocketAddr = self.0.remote_address();
+        let remote_socket_addr: SocketAddr = self.0.remote_address();
 
-        match approver.is_client_allowed(remote_socket) {
+        match approver.is_client_allowed(remote_socket_addr) {
             Approval::Approve => {}
             Approval::Refuse => {
                 self.0.refuse();
@@ -240,7 +245,7 @@ impl IncomingClient {
         }
 
         Ok(ClientConnection {
-            remote_socket,
+            remote_socket_addr,
             inner: connection,
             peer,
         })
@@ -251,7 +256,7 @@ impl IncomingClient {
 #[derive(Debug)]
 pub struct ClientConnection {
     inner: quinn::Connection,
-    remote_socket: SocketAddr,
+    remote_socket_addr: SocketAddr,
     peer: Option<PublicKey>,
 }
 
@@ -276,8 +281,8 @@ impl ClientConnection {
 
     /// Get remote socket
     #[must_use]
-    pub fn remote_socket(&self) -> SocketAddr {
-        self.remote_socket
+    pub fn remote_socket_addr(&self) -> SocketAddr {
+        self.remote_socket_addr
     }
 
     /// Close down gracefully.

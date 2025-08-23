@@ -28,7 +28,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 async fn handle_client(incoming_client: IncomingClient) -> Result<(), Box<dyn std::error::Error>> {
     match incoming_client.accept(&AlwaysAllowedApprover).await {
         Ok(client_connection) => {
-            println!("REMOTE IS {}", client_connection.remote_socket());
+            println!("REMOTE IS {}", client_connection.remote_socket_addr());
             match client_connection.peer() {
                 Some(peer) => println!("REMOTE PEER {}", peer),
                 None => println!("ANONYMOUS"),
