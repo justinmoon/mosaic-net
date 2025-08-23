@@ -85,6 +85,11 @@ impl ServerConfig {
             endpoint,
         })
     }
+
+    /// Retrieve the socket address
+    pub fn socket(&self) -> SocketAddr {
+        self.socket
+    }
 }
 
 /// A Mosaic network `Server`
@@ -92,9 +97,7 @@ impl ServerConfig {
 /// use `ServerConfig` to create a `Server`
 #[derive(Debug)]
 pub struct Server {
-    #[allow(dead_code)]
     config: ServerConfig,
-    #[allow(dead_code)]
     endpoint: quinn::Endpoint,
 }
 
@@ -117,6 +120,11 @@ impl Server {
     pub async fn close(self, code: u32, reason: &[u8]) {
         self.endpoint.close(code.into(), reason);
         self.endpoint.wait_idle().await;
+    }
+
+    /// Retrieve the configuration
+    pub fn config(&self) -> &ServerConfig {
+        &self.config
     }
 }
 
