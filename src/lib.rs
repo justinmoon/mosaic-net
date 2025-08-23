@@ -32,7 +32,10 @@ mod client;
 pub use client::{Client, ClientConfig};
 
 mod server;
-pub use server::{Approval, ClientConnection, IncomingClient, Server, ServerConfig};
+pub use server::{
+    AlwaysAllowedApprover, Approval, Approver, ClientConnection, IncomingClient, Server,
+    ServerConfig,
+};
 
 mod channel;
 pub use channel::Channel;

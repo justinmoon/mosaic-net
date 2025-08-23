@@ -2,7 +2,7 @@ use std::convert::Infallible;
 use std::error::Error as StdError;
 use std::panic::Location;
 
-/// A Mosaic server error
+/// A mosaic-net error
 #[derive(Debug)]
 pub struct Error {
     /// The error itself

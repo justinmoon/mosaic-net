@@ -133,6 +133,22 @@ pub enum Approval {
     SilentlyRefuse,
 }
 
+/// An object that handles approval and rejection of clients
+pub trait Approver {
+    /// Should we allow this client to connect?
+    fn is_client_allowed(&self, s: SocketAddr) -> Approval;
+}
+
+/// An `Approver` that always accepts
+#[derive(Debug, Clone, Copy)]
+pub struct AlwaysAllowedApprover;
+
+impl Approver for AlwaysAllowedApprover {
+    fn is_client_allowed(&self, _: SocketAddr) -> Approval {
+        Approval::Approve
+    }
+}
+
 /// An incoming client that is not fully accepted yet, but should probably be
 /// handled and awaited upon in in a separate task from the main server
 /// accepting thread
@@ -154,10 +170,7 @@ impl IncomingClient {
     /// Errors if client does not perform stateless retry properly, if the
     /// remote address is not approved, or if there is a problem connecting.
     #[allow(clippy::missing_panics_doc)]
-    pub async fn accept<F>(self, approve: F) -> Result<ClientConnection, Error>
-    where
-        F: Fn(SocketAddr) -> Approval,
-    {
+    pub async fn accept<A: Approver>(self, approver: &A) -> Result<ClientConnection, Error> {
         // We don't talk to brand new endpoints until they prove that they
         // control the remote IP and PORT that the packet claims. This is
         // called "stateless retry". The first connection they make must
@@ -171,7 +184,7 @@ impl IncomingClient {
 
         let remote_socket: SocketAddr = self.0.remote_address();
 
-        match approve(remote_socket) {
+        match approver.is_client_allowed(remote_socket) {
             Approval::Approve => {}
             Approval::Refuse => {
                 self.0.refuse();
