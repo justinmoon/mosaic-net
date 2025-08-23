@@ -147,7 +147,7 @@ pub enum Approval {
 }
 
 /// An object that handles approval and rejection of clients
-pub trait Approver: Send + Sync + Clone {
+pub trait Approver: Send + Sync {
     /// Should we allow this client to connect?
     fn is_client_allowed(&self, s: SocketAddr) -> Approval;
 }
