@@ -76,19 +76,6 @@ impl ServerConfig {
         })
     }
 
-    /// Create a Mosaic network server from this configuration
-    ///
-    /// # Errors
-    ///
-    /// Errors if the server could not be setup.
-    pub fn server(&self) -> Result<Server, Error> {
-        let endpoint = quinn::Endpoint::server(self.quinn.clone(), self.socket_addr)?;
-        Ok(Server {
-            config: self.clone(),
-            endpoint,
-        })
-    }
-
     /// Retrieve the socket address
     #[must_use]
     pub fn socket_addr(&self) -> SocketAddr {
@@ -106,6 +93,19 @@ pub struct Server {
 }
 
 impl Server {
+    /// Create a Mosaic network server
+    ///
+    /// # Errors
+    ///
+    /// Errors if the server could not be setup.
+    pub fn new(config: ServerConfig) -> Result<Server, Error> {
+        let endpoint = quinn::Endpoint::server(config.quinn.clone(), config.socket_addr)?;
+        Ok(Self {
+            config,
+            endpoint,
+        })
+    }
+
     /// Accept a new connection. This returns as soon as it can so that the
     /// thread that calls it can get on with other clients.
     ///

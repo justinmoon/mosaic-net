@@ -13,7 +13,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let server_config = ServerConfig::new(secret_key, server_socket)?;
 
-    let server = server_config.server()?;
+    let server = Server::new(server_config)?;
 
     loop {
         let incoming_client: IncomingClient = server.accept().await?;
