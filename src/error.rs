@@ -67,6 +67,9 @@ pub enum InnerError {
     /// Retry Error
     RetryError(Box<quinn::RetryError>),
 
+    /// Shutting Down
+    ShuttingDown,
+
     /// Stateless Retry was required
     StatelessRetryRequired,
 
@@ -94,6 +97,7 @@ impl std::fmt::Display for InnerError {
             InnerError::QuicWrite(e) => write!(f, "QUIC write error: {e}"),
             InnerError::RemoteAddressNotApproved => write!(f, "Remote address not approved"),
             InnerError::RetryError(e) => write!(f, "QUIC retry error: {e}"),
+            InnerError::ShuttingDown => write!(f, "Shutting down"),
             InnerError::StatelessRetryRequired => write!(f, "Stateless retry required"),
             InnerError::Tls(e) => write!(f, "TLS Error: {e}"),
             InnerError::WrongAlpn => write!(f, "Wrong ALPN (peer did not specify mosaic)"),

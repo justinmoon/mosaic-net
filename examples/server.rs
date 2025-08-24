@@ -1,6 +1,7 @@
 use mosaic_core::*;
 use mosaic_net::*;
 use std::net::SocketAddr;
+use tokio::signal::unix::{SignalKind, signal};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -15,14 +16,34 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let server = Server::new(server_config)?;
 
+    let mut interrupt_signal = signal(SignalKind::interrupt())?;
+    let mut quit_signal = signal(SignalKind::quit())?;
+
     loop {
-        let incoming_client: IncomingClient = server.accept().await?;
-        tokio::spawn(async move {
-            if let Err(e) = handle_client(incoming_client).await {
-                eprintln!("{e}");
-            }
-        });
+        tokio::select! {
+            v = interrupt_signal.recv() => if v.is_some() {
+                eprintln!("SIGINT");
+                break;
+            },
+            v = quit_signal.recv() => if v.is_some() {
+                eprintln!("SIGQUIT");
+                break;
+            },
+            v = server.accept() => {
+                let incoming_client: IncomingClient = v?;
+                tokio::spawn(async move {
+                    if let Err(e) = handle_client(incoming_client).await {
+                        eprintln!("{e}");
+                    }
+                });
+            },
+        }
     }
+
+    server.shut_down(0, b"Shutting down").await;
+    eprintln!("Shut down.");
+
+    Ok(())
 }
 
 async fn handle_client(incoming_client: IncomingClient) -> Result<(), Box<dyn std::error::Error>> {

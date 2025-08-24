@@ -6,6 +6,7 @@ use quinn::ServerConfig as QuinnServerConfig;
 use rustls::ServerConfig as TlsServerConfig;
 use std::net::SocketAddr;
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 
 /// A configuration for creating a `Server`
 #[derive(Debug, Clone)]
@@ -90,6 +91,7 @@ impl ServerConfig {
 pub struct Server {
     config: ServerConfig,
     endpoint: quinn::Endpoint,
+    shutting_down: AtomicBool,
 }
 
 impl Server {
@@ -103,6 +105,7 @@ impl Server {
         Ok(Self {
             config,
             endpoint,
+            shutting_down: AtomicBool::new(false),
         })
     }
 
@@ -113,6 +116,10 @@ impl Server {
     ///
     /// Errors if the endpoint is closed
     pub async fn accept(&self) -> Result<IncomingClient, Error> {
+        if self.is_shutting_down() {
+            return Err(InnerError::ShuttingDown.into());
+        }
+
         self.endpoint
             .accept()
             .await
@@ -120,8 +127,14 @@ impl Server {
             .ok_or::<Error>(InnerError::EndpointIsClosed.into())
     }
 
-    /// Close down gracefully.
-    pub async fn close(self, code: u32, reason: &[u8]) {
+    /// If the server is shutting down
+    pub fn is_shutting_down(&self) -> bool {
+        self.shutting_down.load(Ordering::Acquire)
+    }
+
+    /// Shut down gracefully.
+    pub async fn shut_down(&self, code: u32, reason: &[u8]) {
+        self.shutting_down.store(true, Ordering::Release);
         self.endpoint.close(code.into(), reason);
         self.endpoint.wait_idle().await;
     }
@@ -130,6 +143,14 @@ impl Server {
     #[must_use]
     pub fn config(&self) -> &ServerConfig {
         &self.config
+    }
+}
+
+impl Drop for Server {
+    fn drop(&mut self) {
+        if !self.shutting_down.load(Ordering::Acquire) {
+            eprintln!("Server Dropping without Shutdown!!!!");
+        }
     }
 }
 
