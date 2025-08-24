@@ -169,7 +169,8 @@ pub enum Approval {
     SilentlyRefuse,
 }
 
-/// An object that handles approval and rejection of clients
+/// An object that handles approval and rejection of clients.
+/// This occurs before the TLS handshake, so it is based on `SocketAddr` only.
 pub trait Approver: Send + Sync {
     /// Should we allow this client to connect?
     fn is_client_allowed(&self, s: SocketAddr) -> Approval;
@@ -272,6 +273,12 @@ impl IncomingClient {
             inner: connection,
             peer,
         })
+    }
+
+    /// Get at the inner `quinn::Incoming`
+    #[must_use]
+    pub fn inner(&self) -> &quinn::Incoming {
+        &self.0
     }
 }
 
