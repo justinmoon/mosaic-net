@@ -4,10 +4,7 @@ use std::net::SocketAddr;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let client_secret_key = {
-        let mut csprng = rand::rngs::OsRng;
-        SecretKey::generate(&mut csprng)
-    };
+    let client_secret_key = SecretKey::generate();
     println!("Client public key: {}", client_secret_key.public());
 
     let server_public_key =
@@ -29,14 +26,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         let payload = b"hello";
         let tags = OwnedTagSet::new();
         let parts = RecordParts {
-            kind: Kind::CHAT_MESSAGE,
-            deterministic_nonce: None,
+            signing_data: RecordSigningData::SecretKey(client_secret_key.clone()),
+            address_data: RecordAddressData::Random(client_secret_key.public(), Kind::CHAT_MESSAGE),
             timestamp: Timestamp::now()?,
             flags: RecordFlags::empty(),
             tag_set: &tags,
             payload: payload.as_slice(),
         };
-        OwnedRecord::new(&client_secret_key, &parts)?
+        OwnedRecord::new(&parts)?
     };
 
     let message = Message::new_submission(&record)?;

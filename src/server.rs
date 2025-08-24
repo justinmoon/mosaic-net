@@ -134,7 +134,7 @@ impl Server {
 
     /// Shut down gracefully.
     pub async fn shut_down(&self, code: u32, reason: &[u8]) {
-        if ! self.shutting_down.load(Ordering::Acquire) {
+        if !self.shutting_down.load(Ordering::Acquire) {
             self.shutting_down.store(true, Ordering::Release);
             self.endpoint.close(code.into(), reason);
             self.endpoint.wait_idle().await;
