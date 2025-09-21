@@ -55,10 +55,13 @@ impl Channel {
             }
         }
 
-        // Extract the message length and resize buffer to hold it
-        let message_len = (self.partial[1] as usize)
-            + ((self.partial[2] as usize) << 8)
-            + ((self.partial[3] as usize) << 16);
+        // Extract the message length (32-bit little endian at bytes 4..8)
+        let message_len = u32::from_le_bytes(self.partial[4..8].try_into().unwrap()) as usize;
+        if message_len < 8 {
+            return Err(
+                InnerError::General(format!("invalid message length: {message_len}")).into(),
+            );
+        }
         self.partial.resize(message_len, 0);
 
         // Read the remaining bytes
